@@ -52,7 +52,12 @@ SIMPLE_FIELDS = [
     ("eventCompleteLevel", "イベント達成レベル", "int"),
     ("tutoProgress", "チュートリアル進行度", "int"),
     ("totalClickMakeCount", "部屋タップの生産数", "int"),
-    ("totalClickCount", "部屋タップ回数", "int"),
+    # totalClickCount (部屋タップ回数) は編集するとフリーズすることが
+    # 実機で確認された。【関西弁版】ではタップ強化アイテムの一部の解放
+    # 条件 (300/750/1250回タップ) にこの値が使われているらしく、他の
+    # 値との整合性が取れなくなるのが原因と見られるが、何を合わせれば
+    # よいかは未検証。タップ回数はいじらず、アイテムの状態を直接
+    # 解放する方が安全。currentCrystal 同様、簡単編集タブから除外。
     ("comeEnemyCount", "友達が来た回数", "int"),
     ("repelEnemyCount", "おもてなし回数", "int"),
     ("useRepelItemCount", "撃退アイテム使用回数", "int"),
@@ -80,6 +85,13 @@ TEA_STATES = [(0, "未解放"), (1, "未購入"), (2, "購入済")]
 POWERUP_LABELS = [f"{i}: {desc}" for i, desc in POWERUP_STATES]
 TEA_LABELS = [f"{i}: {desc}" for i, desc in TEA_STATES]
 
+# openClothesIds (【関西弁版】限定の衣装開放状態、実機検証済み、
+# 2026-08-25): 0=未解放, 1=解放済み(未着用), 2=解放済み(着用歴あり)。
+# 衣装そのものに固有の名前は無い (説明文はあるがシンプルな名前は無い)
+# とのことなので、"衣装N" という通し番号のみで表示する。
+CLOTHES_STATES = [(0, "未解放"), (1, "解放済み(未着用)"), (2, "解放済み(着用歴あり)")]
+CLOTHES_LABELS = [f"{i}: {desc}" for i, desc in CLOTHES_STATES]
+
 # 生産アイテム (facilitiesLevel/powerupItemLevel の11種) は、レベルアップ
 # する度に見た目・名前が変わる。各アイテムのレベル0〜3の名前
 # (ユーザーが実機で確認・提供)。
@@ -98,16 +110,34 @@ FACILITY_NAMES = [
 ]
 
 # タップ強化アイテム (tapItemLevel) の名前。無印は4種類、【関西弁版】
-# (SenderGirlK) は7種類あることを実データで確認済みだが、5〜7番目の
-# 名前は未確認 (実機での確認待ち)。リストより後ろは "タップアイテムN"
-# という仮のラベルで埋める。
-TAP_ITEM_NAMES = ["お掃除", "メイク", "トレーニング", "ヨガ"]
+# (SenderGirlK) は7種類 (衣装) あることを実機で確認済み (ユーザー提供、
+# 2026-08-25)。
+TAP_ITEM_NAMES_VANILLA = ["お掃除", "メイク", "トレーニング", "ヨガ"]
+TAP_ITEM_NAMES_K = [
+    "猛虎おろしな服",
+    "インテリ女子な服",
+    "おりぼんモンスターな服",
+    "タコヤキはっぴーな服",
+    "フライングアイドルな服",
+    "ミナミの女王な服",
+    "新世界タワーな服",
+]
+
+# 【関西弁版】ではタップ強化アイテムの一部 (2/4/6番目、0-indexedで1/3/5)
+# に「部屋タップ回数」による解放条件があるらしい (ユーザー提供の実機
+# 検証結果)。ただし totalClickCount (部屋タップ回数) を直接編集すると
+# フリーズすることが確認されているため、あくまで参考情報として表示する
+# だけにとどめ、GUIからタップ回数自体を書き換える機能は設けない。
+K_TAP_UNLOCK_TAPS = {1: 300, 3: 750, 5: 1250}
 
 
-def _tap_item_name(i: int) -> str:
-    if i < len(TAP_ITEM_NAMES):
-        return TAP_ITEM_NAMES[i]
-    return f"タップアイテム{i + 1} (未確認)"
+def _tap_item_name(i: int, is_k: bool) -> str:
+    names = TAP_ITEM_NAMES_K if is_k else TAP_ITEM_NAMES_VANILLA
+    label = names[i] if i < len(names) else f"タップアイテム{i + 1} (未確認)"
+    taps = K_TAP_UNLOCK_TAPS.get(i)
+    if is_k and taps is not None:
+        label += f" (部屋タップ{taps}回で解放)"
+    return label
 
 
 def _powerup_labels_for(name: str | None):
@@ -347,9 +377,9 @@ class SaveEditorApp:
             child.destroy()
         self.tap_vars = []
         for i in range(count):
-            ttk.Label(self.tap_frame, text=_tap_item_name(i), width=20, anchor="w").grid(
-                row=i, column=0, sticky="w", padx=6, pady=2
-            )
+            ttk.Label(
+                self.tap_frame, text=_tap_item_name(i, self.is_k), width=30, anchor="w"
+            ).grid(row=i, column=0, sticky="w", padx=6, pady=2)
             var = tk.StringVar()
             cb = ttk.Combobox(
                 self.tap_frame, textvariable=var, values=POWERUP_LABELS, state="readonly", width=14
@@ -373,14 +403,13 @@ class SaveEditorApp:
             text="【関西弁版】(ゆるヤミ彼女と100万件のメッセージ / com.Happygamer.SenderGirlK)\n"
             "にしか存在しないフィールド。無印には無いため、無印のセーブを開いている間は\n"
             "このタブは操作できません。\n"
-            "意味・正しい表示名は未検証です。実機で値を変えて確認した結果を元に、\n"
-            "今後ラベルや選択肢を正確なものに更新する予定です。それまでは生の数値を\n"
-            "直接編集してください。",
+            "衣装 (着せ替え) 関連の要素と判明済み (実機検証、2026-08-25)。個々の衣装に\n"
+            "固有の名前は無いようなので通し番号で表示しています。",
             justify="left",
             foreground="#a05a2c",
         ).grid(row=0, column=0, columnspan=2, sticky="w", padx=6, pady=(8, 10))
 
-        ttk.Label(inner, text="selectClothes (選択中の衣装ID、未確認。-1=未選択?)", width=40, anchor="w").grid(
+        ttk.Label(inner, text="selectClothes (選択中の衣装ID。-1=未選択)", width=40, anchor="w").grid(
             row=1, column=0, sticky="w", padx=6, pady=4
         )
         self.k_select_clothes_var = tk.StringVar()
@@ -389,7 +418,7 @@ class SaveEditorApp:
         )
 
         ttk.Label(
-            inner, text="nextTapItemAvailStatus (未確認)", width=40, anchor="w"
+            inner, text="nextTapItemAvailStatus (意味未確認。無関係な値の可能性あり)", width=48, anchor="w"
         ).grid(row=2, column=0, sticky="w", padx=6, pady=4)
         self.k_next_tap_var = tk.StringVar()
         ttk.Entry(inner, textvariable=self.k_next_tap_var, width=12).grid(
@@ -398,7 +427,7 @@ class SaveEditorApp:
 
         ttk.Label(
             inner,
-            text="openClothesIds (衣装の開放状態と思われる配列、未確認)",
+            text="openClothesIds (各衣装の開放状態)",
             font=("", 11, "bold"),
         ).grid(row=3, column=0, columnspan=2, sticky="w", padx=6, pady=(12, 2))
         self.k_clothes_frame = ttk.Frame(inner)
@@ -416,9 +445,10 @@ class SaveEditorApp:
                 row=i, column=0, sticky="w", padx=6, pady=2
             )
             var = tk.StringVar()
-            ttk.Entry(self.k_clothes_frame, textvariable=var, width=10).grid(
-                row=i, column=1, sticky="w", padx=6, pady=2
+            cb = ttk.Combobox(
+                self.k_clothes_frame, textvariable=var, values=CLOTHES_LABELS, state="readonly", width=20
             )
+            cb.grid(row=i, column=1, sticky="w", padx=6, pady=2)
             self.k_clothes_vars.append(var)
         self._bind_wheel_recursive(self.k_clothes_frame, self.k_canvas)
 
@@ -511,6 +541,13 @@ class SaveEditorApp:
     def _refresh_items_tab(self):
         if self.data is None:
             return
+        self.is_k = save_payload.is_k_variant(self.data)
+        self.notebook.tab(self.k_tab, state="normal" if self.is_k else "disabled")
+        if self.is_k:
+            self.variant_badge.config(text="関西弁版", bg="#ffe0b2", fg="#5d4037")
+        else:
+            self.variant_badge.config(text="ゆるヤミ彼女(無印)", bg="#f8bbd0", fg="#4a148c")
+
         facilities = self.data.get("facilitiesLevel") or []
         for i, var in enumerate(self.facilities_vars):
             var.set(str(facilities[i]) if i < len(facilities) else "")
@@ -533,18 +570,14 @@ class SaveEditorApp:
             value = tea[i] if i < len(tea) else 0
             var.set(_label_for_state(value, TEA_LABELS))
 
-        self.is_k = save_payload.is_k_variant(self.data)
-        self.notebook.tab(self.k_tab, state="normal" if self.is_k else "disabled")
         if self.is_k:
-            self.variant_badge.config(text="関西弁版", bg="#ffe0b2", fg="#5d4037")
             self.k_select_clothes_var.set(str(self.data.get("selectClothes", "")))
             self.k_next_tap_var.set(str(self.data.get("nextTapItemAvailStatus", "")))
             clothes = self.data.get("openClothesIds") or []
             self._rebuild_k_clothes_rows(len(clothes))
             for i, var in enumerate(self.k_clothes_vars):
-                var.set(str(clothes[i]))
+                var.set(_label_for_state(clothes[i], CLOTHES_LABELS))
         else:
-            self.variant_badge.config(text="ゆるヤミ彼女(無印)", bg="#f8bbd0", fg="#4a148c")
             self._rebuild_k_clothes_rows(0)
 
     def _collect_items_tab_into_data(self):
@@ -574,9 +607,11 @@ class SaveEditorApp:
                 if "nextTapItemAvailStatus" in self.data:
                     self.data["nextTapItemAvailStatus"] = int(self.k_next_tap_var.get())
                 if "openClothesIds" in self.data:
-                    self.data["openClothesIds"] = [int(var.get()) for var in self.k_clothes_vars]
+                    self.data["openClothesIds"] = [
+                        _state_from_label(var.get()) for var in self.k_clothes_vars
+                    ]
             except ValueError:
-                raise ValueError("「関西弁版限定」タブの値には整数を入力してください。")
+                raise ValueError("「関西弁版限定」タブの selectClothes / nextTapItemAvailStatus には整数を入力してください。")
 
     def refresh_json_from_data(self):
         if self.data is None:
@@ -665,7 +700,8 @@ class SaveEditorApp:
             try:
                 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
                 timestamp = datetime.now().strftime("%y%m%d-%H%M")
-                backup = BACKUP_DIR / f"{timestamp}-{path.name}"
+                variant_tag = "K-" if self.is_k else ""
+                backup = BACKUP_DIR / f"{timestamp}-{variant_tag}{path.name}"
                 backup.write_bytes(path.read_bytes())
             except Exception as e:  # noqa: BLE001
                 backup_error = str(e)

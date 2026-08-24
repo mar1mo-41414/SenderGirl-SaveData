@@ -325,14 +325,46 @@ dialect version", `com.Happygamer.SenderGirlK`), and investigated it.
   2026-08-25).
 - The payload has 49 keys (the original has 46). All of the original's
   fields are present with the same meaning, plus 3 additional ones
-  (none verified on-device yet — likely outfit/costume related):
-  - `openClothesIds` — an array of 15
-  - `selectClothes` — a single int (observed value: `-1`)
-  - `nextTapItemAvailStatus` — a single int
-- `tapItemLevel` has 7 elements (the original has 4). Names for items
-  5-7 are unknown.
-- `facilitiesLevel` (11), `powerupItemLevel` (11×4), and `teaItemLevel`
-  (4) are the same size and meaning as the original.
+  (verified on-device, 2026-08-25):
+  - `openClothesIds` — an array of 15: unlock state of each costume.
+    `0`=locked / `1`=unlocked(never worn) / `2`=unlocked(worn before).
+    The costumes apparently don't have simple individual names (there's
+    descriptive text, but no short name).
+  - `selectClothes` — a single int: the currently-selected costume.
+    `-1`=none selected.
+  - `nextTapItemAvailStatus` — a single int. **Still unknown** — may be
+    safe to ignore.
+- `facilitiesLevel` (11 items) and `powerupItemLevel` (4 stages each)
+  are **identical** to the original (same order, same names — item 1 is
+  電柱 "utility pole" in both). The `maxTeaSet` formula (2 × count of
+  purchased `teaItemLevel`) is also unchanged.
+- `tapItemLevel` has 7 elements (the original has 4), and its names are
+  completely different — costume names, not the original's activities:
+
+  | # | Name | Unlock condition |
+  |---|---|---|
+  | 1 | 猛虎おろしな服 | - |
+  | 2 | インテリ女子な服 | 300 room taps |
+  | 3 | おりぼんモンスターな服 | - |
+  | 4 | タコヤキはっぴーな服 | 750 room taps |
+  | 5 | フライングアイドルな服 | - |
+  | 6 | ミナミの女王な服 | 1250 room taps |
+  | 7 | 新世界タワーな服 | - |
+
+  "Room taps" in the unlock condition appears to mean `totalClickCount`
+  (the tap *count*, not the tap-power value).
+
+### ⚠️ Editing `totalClickCount` (room tap count) freezes the app
+
+Likely because it's used for the unlock conditions above, directly
+editing `totalClickCount` was confirmed to freeze the app on-device
+(2026-08-25). It's not known which other value(s) it needs to stay
+consistent with. **The safer approach is to leave the tap count alone
+and unlock `tapItemLevel` entries directly** — confirmed to work fine
+without touching the tap count at all. Like `currentCrystal`, this
+field has been removed from the GUI's "Simple edit" tab. Since it's a
+field shared by both variants, this caveat may apply to the original
+app too.
 
 ### The envelope (header) length differs
 
@@ -357,9 +389,9 @@ written by the same code without caring about header length up front.
   auto-detect which variant the file is, shown as a badge in the
   top-right corner.
 - The K-only fields live in their own "K-only" tab (disabled while a
-  non-K save is loaded). Since their meaning is unverified, the tab
-  currently just exposes raw numbers with placeholder labels; the plan
-  is to replace them with real labels/choices once verified on-device.
+  non-K save is loaded). `selectClothes` / `openClothesIds` now have
+  their meaning confirmed and are editable with proper choices;
+  `nextTapItemAvailStatus` is still unknown and stays a raw number.
 - The number of `tapItemLevel` rows is generated dynamically to match
   the loaded file's actual array length (4 for the original, 7 for K).
 
