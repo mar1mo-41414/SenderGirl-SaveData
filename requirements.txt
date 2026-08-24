@@ -1,3 +1,5 @@
-# 現在このプロジェクトの実行時 (Tkinter GUI含む) に外部パッケージは
-# 不要 (Python 3.8+ 標準ライブラリのみで動作)。
-# .app / .exe をビルドする場合は requirements-dev.txt を参照。
+# No third-party packages are required to run this project (the
+# Tkinter GUI included) -- Python 3.8+ standard library only.
+# To build the .app / .exe, see requirements-dev.txt.
+# (Comments here are kept ASCII-only: pip's requirements parser and
+# some Windows tools mis-decode non-ASCII bytes under certain locales.)
