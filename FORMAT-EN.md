@@ -354,17 +354,22 @@ dialect version", `com.Happygamer.SenderGirlK`), and investigated it.
   "Room taps" in the unlock condition appears to mean `totalClickCount`
   (the tap *count*, not the tap-power value).
 
-### ⚠️ Editing `totalClickCount` (room tap count) freezes the app
+### ⚠️ Editing `totalClickCount` (room tap count) freezes the app — K version only
 
 Likely because it's used for the unlock conditions above, directly
-editing `totalClickCount` was confirmed to freeze the app on-device
-(2026-08-25). It's not known which other value(s) it needs to stay
-consistent with. **The safer approach is to leave the tap count alone
-and unlock `tapItemLevel` entries directly** — confirmed to work fine
-without touching the tap count at all. Like `currentCrystal`, this
-field has been removed from the GUI's "Simple edit" tab. Since it's a
-field shared by both variants, this caveat may apply to the original
-app too.
+editing `totalClickCount` in the **K version** was confirmed to freeze
+the app on-device (2026-08-25). It's not known which other value(s) it
+needs to stay consistent with. **The safer approach is to leave the tap
+count alone and unlock `tapItemLevel` entries directly** — confirmed to
+work fine without touching the tap count at all.
+
+**This does not reproduce on the original app** — also confirmed
+on-device (no freeze no matter how outlandish a value was entered).
+It's presumably caused by an unlock-condition check that only exists in
+the K version. Because of that, the GUI keeps this field normally
+editable while the original is loaded, and only disables it while a K
+save is loaded (unlike `currentCrystal`, which is excluded for both
+variants).
 
 ### The envelope (header) length differs
 

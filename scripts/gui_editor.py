@@ -52,12 +52,14 @@ SIMPLE_FIELDS = [
     ("eventCompleteLevel", "イベント達成レベル", "int"),
     ("tutoProgress", "チュートリアル進行度", "int"),
     ("totalClickMakeCount", "部屋タップの生産数", "int"),
-    # totalClickCount (部屋タップ回数) は編集するとフリーズすることが
-    # 実機で確認された。【関西弁版】ではタップ強化アイテムの一部の解放
-    # 条件 (300/750/1250回タップ) にこの値が使われているらしく、他の
-    # 値との整合性が取れなくなるのが原因と見られるが、何を合わせれば
-    # よいかは未検証。タップ回数はいじらず、アイテムの状態を直接
-    # 解放する方が安全。currentCrystal 同様、簡単編集タブから除外。
+    # totalClickCount (部屋タップ回数) は【関西弁版】でのみ編集すると
+    # フリーズすることが実機で確認された (タップ強化アイテムの解放条件
+    # 300/750/1250回タップに使われているらしく、他の値との整合性が
+    # 取れなくなるためと見られる)。無印ではどんな値にしてもフリーズ
+    # しないことも確認済み。そのため無印では通常通り編集可能にし、
+    # 【関西弁版】を開いているときだけこのフィールドを無効化する
+    # (_refresh_items_tab 内、self.total_click_count_entry 経由)。
+    ("totalClickCount", "部屋タップ回数", "int"),
     ("comeEnemyCount", "友達が来た回数", "int"),
     ("repelEnemyCount", "おもてなし回数", "int"),
     ("useRepelItemCount", "撃退アイテム使用回数", "int"),
@@ -210,6 +212,8 @@ class SaveEditorApp:
         self.k_next_tap_var: tk.StringVar | None = None
         self.k_clothes_vars: list[tk.StringVar] = []
         self.is_k = False
+        self.total_click_count_entry: ttk.Entry | None = None
+        self.total_click_count_label: ttk.Label | None = None
 
         self._build_menu()
         self._build_body()
@@ -272,7 +276,8 @@ class SaveEditorApp:
         scrollbar.pack(side="right", fill="y")
 
         for row, (key, label, kind) in enumerate(SIMPLE_FIELDS):
-            ttk.Label(inner, text=label, width=28, anchor="w").grid(row=row, column=0, sticky="w", padx=6, pady=4)
+            label_widget = ttk.Label(inner, text=label, width=28, anchor="w")
+            label_widget.grid(row=row, column=0, sticky="w", padx=6, pady=4)
             if kind == "bool":
                 var = tk.BooleanVar()
                 widget = ttk.Checkbutton(inner, variable=var)
@@ -282,6 +287,9 @@ class SaveEditorApp:
                 widget = ttk.Entry(inner, textvariable=var, width=30)
                 widget.grid(row=row, column=1, sticky="w", padx=6, pady=4)
             self.widgets[key] = (kind, var)
+            if key == "totalClickCount":
+                self.total_click_count_entry = widget
+                self.total_click_count_label = label_widget
         self.simple_canvas = canvas
         self._bind_wheel_recursive(self.simple_tab, canvas)
 
@@ -547,6 +555,17 @@ class SaveEditorApp:
             self.variant_badge.config(text="関西弁版", bg="#ffe0b2", fg="#5d4037")
         else:
             self.variant_badge.config(text="ゆるヤミ彼女(無印)", bg="#f8bbd0", fg="#4a148c")
+
+        # totalClickCount (部屋タップ回数) は【関西弁版】でのみ編集する
+        # とフリーズすることが実機で確認されている (無印はどんな値でも
+        # フリーズしないことも確認済み)。K版を開いている間だけ無効化。
+        if self.total_click_count_entry is not None:
+            if self.is_k:
+                self.total_click_count_entry.state(["disabled"])
+                self.total_click_count_label.config(text="部屋タップ回数 (関西弁版では編集不可)")
+            else:
+                self.total_click_count_entry.state(["!disabled"])
+                self.total_click_count_label.config(text="部屋タップ回数")
 
         facilities = self.data.get("facilitiesLevel") or []
         for i, var in enumerate(self.facilities_vars):
