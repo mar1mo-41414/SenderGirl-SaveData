@@ -18,8 +18,9 @@ GUI save editor built on top of that work.
 - Using an edited save file is at your own risk. On-device freezes have
   actually been observed with certain edits (see
   [FORMAT-EN.md](FORMAT-EN.md) for details). **Always back up the
-  original file before editing** (the editor auto-creates a `.bak` on
-  overwrite, but keeping a separate copy elsewhere is recommended too).
+  original file before editing** (the editor auto-creates a timestamped
+  backup under `~/.SGSE_bak/` on overwrite, but keeping a separate copy
+  elsewhere is recommended too).
 - In particular, editing `currentCrystal` (the paid/premium currency)
   reliably freezes the app. It's intentionally excluded from the GUI's
   "Simple edit" tab.

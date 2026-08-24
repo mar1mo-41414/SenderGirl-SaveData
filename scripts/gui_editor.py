@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import sys
 import tkinter as tk
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -19,6 +20,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import saveit_format  # noqa: E402
 import save_payload  # noqa: E402
 from save_payload import Decimal96  # noqa: E402
+
+# バックアップの保存先。編集元ファイルと同じフォルダに書こうとすると、
+# それがiOSアプリのサンドボックスコンテナ内 (~/Library/Containers/<UUID>/...)
+# だった場合、選択したファイル自体への書き込みは許可されていても
+# 同じフォルダに新規ファイルを作ることは許可されておらず
+# ([Errno 1] Operation not permitted) バックアップが作れないことがある
+# (実機で確認済み)。ホームディレクトリ直下の専用フォルダに退避することで
+# この問題を避ける。
+BACKUP_DIR = Path.home() / ".SGSE_bak"
 
 
 # (キー, ラベル, 種別)  種別: "bool" / "int" / "float" / "decimal" / "str"
@@ -527,8 +537,10 @@ class SaveEditorApp:
         backup = None
         backup_error = None
         if path.exists():
-            backup = path.with_suffix(path.suffix + ".bak")
             try:
+                BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+                timestamp = datetime.now().strftime("%y%m%d-%H%M")
+                backup = BACKUP_DIR / f"{timestamp}-{path.name}"
                 backup.write_bytes(path.read_bytes())
             except Exception as e:  # noqa: BLE001
                 backup_error = str(e)
@@ -539,7 +551,7 @@ class SaveEditorApp:
         self.refresh_json_from_data()
         msg = f"保存しました: {path}"
         if backup:
-            msg += f"\n(元ファイルは {backup.name} としてバックアップ済み)"
+            msg += f"\n(元ファイルは {backup} にバックアップ済み)"
         elif backup_error:
             msg += f"\n⚠ バックアップの作成に失敗しました: {backup_error}"
         self._set_status(msg)
