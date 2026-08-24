@@ -288,6 +288,11 @@ explanation is that the value is used as an index into some array sized
 for only 127 entries. Neither is confirmed, but no simpler explanation
 fits the exact 127/128 boundary as well.
 
+**The same boundary (127 fine, 128+ freezes) was confirmed on-device in
+the K version too** (2026-08-25). Unlike the `totalClickCount` issue,
+this one appears to affect both variants — presumably because they
+share the same underlying game code.
+
 ### Remaining caveats
 
 - The original zip used Zip64 + a data descriptor; since the editor
