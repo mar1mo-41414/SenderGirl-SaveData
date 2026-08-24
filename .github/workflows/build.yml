@@ -1,0 +1,70 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-macos:
+    name: Build macOS (arm64)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Build .app
+        run: bash scripts/build_mac.sh
+      - name: Zip .app
+        run: |
+          cd dist
+          zip -rq -X SenderGirlSaveEditor-mac-arm64.zip SenderGirlSaveEditor.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SenderGirlSaveEditor-mac-arm64
+          path: dist/SenderGirlSaveEditor-mac-arm64.zip
+
+  build-windows:
+    name: Build Windows (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Build .exe
+        shell: cmd
+        run: scripts\build_windows.bat
+      - name: Zip build output
+        shell: pwsh
+        run: Compress-Archive -Path dist\SenderGirlSaveEditor\* -DestinationPath dist\SenderGirlSaveEditor-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SenderGirlSaveEditor-windows-x64
+          path: dist/SenderGirlSaveEditor-windows-x64.zip
+
+  release:
+    name: Publish GitHub Release
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/SenderGirlSaveEditor-mac-arm64/*.zip
+            artifacts/SenderGirlSaveEditor-windows-x64/*.zip

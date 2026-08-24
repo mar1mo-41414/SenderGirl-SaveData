@@ -9,6 +9,28 @@ Includes the results of reverse-engineering the encrypted container
 format, recovering the password, and decoding the data structure, plus a
 GUI save editor built on top of that work.
 
+## Supported app
+
+**Only the original "ゆるヤミ彼女" (`com.Happygamer.SenderGirl`) is
+supported.**
+
+There's a sister title, **【関西弁版】ゆるヤミ彼女と100万件のメッセージ**
+("Kansai-dialect version", `com.Happygamer.SenderGirlK`). It's
+fundamentally the same game — item names etc. appear identical, and it
+also uses a `UserData.saveIt` save file — but **this tool does not
+support it**, because:
+
+- There's no guarantee the encryption password is the same (it's a
+  constant embedded in each app's own binary, so the password recovered
+  for the original may not decrypt the K version's saves).
+- Any additional unlockable content may map to the data structure
+  differently than in the original.
+- The K version's actual save data has not been examined at all.
+
+If you want to use this with the K version, follow the methodology in
+[FORMAT-EN.md](FORMAT-EN.md) to re-derive the password and verify the
+structure yourself first.
+
 ## Disclaimer
 
 - This is an **unofficial fan-made tool**, not affiliated with the
@@ -33,7 +55,21 @@ GUI save editor built on top of that work.
   production item you own and their upgrade states, etc.)
 - View/edit every field as raw JSON (advanced use)
 
-## Usage
+## Download (pre-built GUI)
+
+Pre-built binaries for Mac (Apple Silicon) and Windows (x64) are
+available on the
+[Releases page](https://github.com/mar1mo-41414/SenderGirl-SaveData/releases).
+GitHub Actions builds and attaches them automatically for every tagged
+release (`.github/workflows/build.yml`).
+
+These are unsigned/unnotarized builds, so the OS will warn you on first
+launch:
+- Mac: right-click → "Open", or run
+  `xattr -cr SenderGirlSaveEditor.app` to clear the quarantine flag.
+- Windows: if SmartScreen warns you, click "More info" → "Run anyway".
+
+## Usage (running from source)
 
 Requirements:
 - Python 3.8+ (no extra packages needed)
