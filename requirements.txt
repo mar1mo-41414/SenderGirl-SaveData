@@ -1,0 +1,3 @@
+# 現在このプロジェクトの実行時 (Tkinter GUI含む) に外部パッケージは
+# 不要 (Python 3.8+ 標準ライブラリのみで動作)。
+# .app / .exe をビルドする場合は requirements-dev.txt を参照。

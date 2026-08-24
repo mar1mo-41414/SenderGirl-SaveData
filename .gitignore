@@ -1,0 +1,14 @@
+start-note.md
+__pycache__/
+*.pyc
+.DS_Store
+dist/
+build/
+*.spec
+
+# アプリ本体・実機セーブデータ (著作物 / 個人データ) はリポジトリに含めない
+*.ipa
+*.saveIt
+/Payload/
+/extracted/
+/work/
