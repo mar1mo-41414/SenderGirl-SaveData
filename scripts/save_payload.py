@@ -1,17 +1,22 @@
 """SaveIt が復号後に返す "main" バイナリの中身のパース/再構築。
 
-構造 (com.Happygamer.SenderGirl.ipa の実データで解析・確認済み):
+構造 (com.Happygamer.SenderGirl.ipa / com.Happygamer.SenderGirlK.ipa の
+実データで解析・確認済み):
 
-  offset 0-176 (177バイト) : 固定のヘッダ。SaveIt.TableSerializer が
-      1個の名前付きエントリ ("UserData") を、その値の型情報
-      (.NET のアセンブリ修飾型名を模した文字列を3つ、フル/短縮形で
-      連続して書き出したもの) と共にラップしている。中身は実質固定
-      (アプリのバージョンが変わらない限り不変と考えられる) なので、
-      HEADER_TEMPLATE としてそのまま保持・再利用する。
-  offset 177-180 (4バイト) : int32 LE = 以降に続くペイロードのバイト数。
-  offset 181-    : ペイロード本体。**MessagePack** でエンコードされた
-      1個の連想配列 (dict)。ここにゲームの実データ (ボリューム設定・
-      ♡の数・きずな履歴 等) が全て入っている。
+  1個の名前付きエントリ ("UserData") を、その値の型情報 (.NET の
+  アセンブリ修飾型名を模した文字列を3つ、フル/短縮形で連続して書き
+  出したもの) と共にラップした「エンベロープ」に続けて、
+  ペイロード長 (int32 LE) + ペイロード本体 (**MessagePack**) が
+  入っている。
+
+  エンベロープの中身 (型記述の文字列など) はアプリのビルド設定
+  (使用した.NETランタイムのバージョン等) によって長さが変わりうる
+  ことが分かっている (無印「ゆるヤミ彼女」と、姉妹作の【関西弁版】
+  で実際に異なる長さだった: 177バイト vs 156バイト)。そのため、
+  「先頭Nバイトは固定」という決め打ちはせず、.NET の7bitエンコード
+  長さプレフィックス形式に従って毎回きちんとパースすることで、
+  どちらの版でも (将来別の版が出ても) 同じコードで扱えるようにして
+  いる。
 
 MessagePack ペイロード内の値の型:
   - 大きな数値 (currentCookieCount, totalCookieCount, maxCookie 等) は
@@ -27,39 +32,64 @@ MessagePack ペイロード内の値の型:
     そのままフィールド単位シリアライズしたもの (_items配列 + _size +
     _version)。_items 配列は内部容量ぶんの余剰要素があり、末尾は
     未使用スロットとして null や無効値が入っていることがある。
+
+【関西弁版】(com.Happygamer.SenderGirlK) 固有の差分 (実データで確認済み、
+未検証部分あり):
+  - 暗号化パスワードは無印と共通 (同じ128文字定数で復号できた)。
+  - ペイロードのキー数が49個 (無印は46個)。無印の全フィールドに加えて
+    openClothesIds / selectClothes / nextTapItemAvailStatus の3つが
+    追加されている (おそらく衣装/コスチューム関連の要素だが、実機での
+    意味確認はまだ)。
+  - tapItemLevel の要素数が7個 (無印は4個)。
 """
 from __future__ import annotations
 
 import struct
 from decimal import Decimal
-from pathlib import Path
 
 import mpatch
 
-_REF_MAIN = Path(__file__).resolve().parent.parent / "work" / "main_confirmed.bin"
-
-PAYLOAD_LEN_OFFSET = 177  # ヘッダ末尾、4バイトの int32 LE (ペイロード長)
-HEADER_LEN = 181  # ヘッダ全体 (ペイロード長フィールドを含む)
-
-
-def _load_header_template() -> bytes:
-    """既知の復号済みセーブファイルからヘッダ (先頭177バイト、長さ
-    フィールドより前) を読み込む。実機データが手元にない環境向けに、
-    観測済みの固定バイト列をフォールバックとして埋め込んでおく。"""
-    if _REF_MAIN.exists():
-        return _REF_MAIN.read_bytes()[: PAYLOAD_LEN_OFFSET]
-    return bytes.fromhex(
-        "0100000000000000000100000008557365724461746101535379737465"
-        "6d2e427974655b5d2c206d73636f726c69622c2056657273696f6e3d322e"
-        "302e302e302c2043756c747572653d2c205075626c69634b6579546f6b65"
-        "6e3d623737613563353631393334653038392153797374656d2e42797465"
-        "5b5d2c206d73636f726c69622c2043756c747572653d1f53797374656d2e"
-        "427974652c206d73636f726c69622c2043756c747572653d01000000"
-    )
+# エンベロープ先頭、"UserData" という名前より前にある固定長の部分
+# (フォーマットバージョン等の int32 が2つ + フラグ1バイト + エントリ数
+# int32)。中身の意味までは踏み込まず、単にこのバイト数だけ読み飛ばす。
+_ENVELOPE_PREFIX_LEN = 8 + 1 + 4
 
 
-HEADER_TEMPLATE = _load_header_template()
-assert len(HEADER_TEMPLATE) == PAYLOAD_LEN_OFFSET
+def _read_7bit_int(buf: bytes, pos: int) -> tuple[int, int]:
+    """.NET の 7bit エンコード整数 (BinaryWriter.Write7BitEncodedInt と
+    同じ形式) を pos から読み、(値, 読み終わった位置) を返す。"""
+    result = 0
+    shift = 0
+    while True:
+        b = buf[pos]
+        pos += 1
+        result |= (b & 0x7F) << shift
+        if not (b & 0x80):
+            break
+        shift += 7
+    return result, pos
+
+
+def _parse_envelope(raw_main: bytes) -> tuple[bytes, bytes]:
+    """raw_main (復号済み "main" バイナリ) をパースし、
+    (ペイロード長フィールドまでを含むヘッダのプレフィックス,
+     ペイロード本体のバイト列) を返す。"""
+    pos = _ENVELOPE_PREFIX_LEN
+    name_len, pos = _read_7bit_int(raw_main, pos)
+    pos += name_len  # エントリ名 ("UserData") 本体はスキップ
+    pos += 1  # 値の型を示すタグバイト
+    for _ in range(3):  # 型記述の文字列が3つ連続する
+        str_len, pos = _read_7bit_int(raw_main, pos)
+        pos += str_len
+    pos += 4  # int32 (配列の次元数など。中身は使わない)
+
+    length_field_pos = pos
+    (payload_len,) = struct.unpack_from("<i", raw_main, pos)
+    pos += 4
+
+    prefix = raw_main[:length_field_pos]
+    payload = raw_main[pos : pos + payload_len]
+    return prefix, payload
 
 
 class Decimal96:
@@ -126,15 +156,21 @@ def _walk_encode(obj):
     return obj
 
 
-def _payload_slice(raw_main: bytes) -> bytes:
-    (payload_len,) = struct.unpack_from("<i", raw_main, PAYLOAD_LEN_OFFSET)
-    return raw_main[HEADER_LEN : HEADER_LEN + payload_len]
+# 【関西弁版】(SenderGirlK) にしか存在しないキー。これが1つでも入っていれば
+# K版のセーブデータと判定する。
+K_ONLY_KEYS = ("openClothesIds", "selectClothes", "nextTapItemAvailStatus")
+
+
+def is_k_variant(data: dict) -> bool:
+    return any(k in data for k in K_ONLY_KEYS)
 
 
 def decode_main(raw_main: bytes) -> dict:
     """decrypt_save.py 等で復号した "main" バイナリを Python の dict に
-    変換する。大きな数値フィールドは Decimal96 でラップされる。"""
-    payload = _payload_slice(raw_main)
+    変換する。大きな数値フィールドは Decimal96 でラップされる。
+    無印/【関西弁版】どちらの形式でも (エンベロープ長の違いを自動的に
+    吸収して) 同じ関数で読める。"""
+    _, payload = _parse_envelope(raw_main)
     root = mpatch.parse(payload)
     return _walk_decode(mpatch.to_plain(root))
 
@@ -142,14 +178,14 @@ def decode_main(raw_main: bytes) -> dict:
 def encode_main(original_raw_main: bytes, data: dict) -> bytes:
     """decode_main の逆変換。
 
-    original_raw_main (編集前に読み込んだ "main" バイナリ) のペイロードを
-    バイト単位でパースし、data (編集後の値) と突き合わせて、値が変わって
-    いない部分は元のバイト列をそのまま、変わった部分だけ元と同じ型/
-    バイト幅で書き直すことで、"編集していないのに壊れる" ことを防ぐ。
-    ヘッダは HEADER_TEMPLATE を再利用し、ペイロード長だけ書き換える。
+    original_raw_main (編集前に読み込んだ "main" バイナリ) からエンベロープ
+    (ヘッダ) を実際にパースして再利用し、ペイロード部分はバイト単位で
+    パースして値が変わっていない部分は元のバイト列をそのまま、変わった
+    部分だけ元と同じ型/バイト幅で書き直すことで、"編集していないのに
+    壊れる" ことを防ぐ。ペイロード長フィールドだけは新しい値に書き換える。
     """
-    original_payload = _payload_slice(original_raw_main)
+    prefix, original_payload = _parse_envelope(original_raw_main)
     root = mpatch.parse(original_payload)
     plain = _walk_encode(data)
     payload = mpatch.rebuild(root, plain)
-    return HEADER_TEMPLATE + struct.pack("<i", len(payload)) + payload
+    return prefix + struct.pack("<i", len(payload)) + payload

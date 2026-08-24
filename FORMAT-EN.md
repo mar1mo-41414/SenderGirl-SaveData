@@ -311,6 +311,58 @@ fits the exact 127/128 boundary as well.
   input-related utilities installed) have been reported not to respond.
   Root cause not identified. Dragging the scrollbar itself always works.
 
+## 5. Supporting the sister title (SenderGirlK)
+
+Obtained a decrypted IPA and a real `UserData.saveIt` for the sister
+title, **【関西弁版】ゆるヤミ彼女と100万件のメッセージ** ("Kansai-
+dialect version", `com.Happygamer.SenderGirlK`), and investigated it.
+
+### Findings
+
+- **The encryption password is fully shared with the original.** The
+  same 128-character constant recovered for the original decrypted the
+  K version's `UserData.saveIt` directly (confirmed against real data,
+  2026-08-25).
+- The payload has 49 keys (the original has 46). All of the original's
+  fields are present with the same meaning, plus 3 additional ones
+  (none verified on-device yet — likely outfit/costume related):
+  - `openClothesIds` — an array of 15
+  - `selectClothes` — a single int (observed value: `-1`)
+  - `nextTapItemAvailStatus` — a single int
+- `tapItemLevel` has 7 elements (the original has 4). Names for items
+  5-7 are unknown.
+- `facilitiesLevel` (11), `powerupItemLevel` (11×4), and `teaItemLevel`
+  (4) are the same size and meaning as the original.
+
+### The envelope (header) length differs
+
+The outer envelope (the part that writes out the entry name "UserData"
+plus its value's type info) differs in byte length between the original
+(177 bytes) and the K version (156 bytes), because the .NET runtime
+version string baked in at build time differs. Concretely, the type
+descriptor string reads
+`"System.Byte[], mscorlib, Version=2.0.5.0, Culture=neutral, PublicKeyToken=null"`
+in the K version, vs. a shorter form omitting `Culture=neutral` with
+`Version=2.0.0.0` in the original.
+
+Because of this, `scripts/save_payload.py` no longer assumes "the first
+N bytes are fixed" — it properly parses the envelope every time
+following .NET's 7-bit-encoded length-prefix format. That means both
+variants (and any future one with the same shape) can be read and
+written by the same code without caring about header length up front.
+
+### How the GUI handles it
+
+- On open, the presence of K-only keys like `openClothesIds` is used to
+  auto-detect which variant the file is, shown as a badge in the
+  top-right corner.
+- The K-only fields live in their own "K-only" tab (disabled while a
+  non-K save is loaded). Since their meaning is unverified, the tab
+  currently just exposes raw numbers with placeholder labels; the plan
+  is to replace them with real labels/choices once verified on-device.
+- The number of `tapItemLevel` rows is generated dynamically to match
+  the loaded file's actual array length (4 for the original, 7 for K).
+
 ## Layout
 
 ```

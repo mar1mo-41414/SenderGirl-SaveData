@@ -11,25 +11,22 @@ GUI save editor built on top of that work.
 
 ## Supported app
 
-**Only the original "ゆるヤミ彼女" (`com.Happygamer.SenderGirl`) is
-supported.**
+Besides the original "ゆるヤミ彼女" (`com.Happygamer.SenderGirl`), this
+tool has **experimental support** for its sister title
+**【関西弁版】ゆるヤミ彼女と100万件のメッセージ**
+("Kansai-dialect version", `com.Happygamer.SenderGirlK`).
 
-There's a sister title, **【関西弁版】ゆるヤミ彼女と100万件のメッセージ**
-("Kansai-dialect version", `com.Happygamer.SenderGirlK`). It's
-fundamentally the same game — item names etc. appear identical, and it
-also uses a `UserData.saveIt` save file — but **this tool does not
-support it**, because:
+The encryption password and container format turned out to be identical
+between the two apps, and all the fields they share behave the same way
+— confirmed against real save data. Which variant a loaded file belongs
+to is detected automatically and shown as a badge in the top-right
+corner.
 
-- There's no guarantee the encryption password is the same (it's a
-  constant embedded in each app's own binary, so the password recovered
-  for the original may not decrypt the K version's saves).
-- Any additional unlockable content may map to the data structure
-  differently than in the original.
-- The K version's actual save data has not been examined at all.
-
-If you want to use this with the K version, follow the methodology in
-[FORMAT-EN.md](FORMAT-EN.md) to re-derive the password and verify the
-structure yourself first.
+That said, the 3 fields that only exist in the K version
+(`openClothesIds` / `selectClothes` / `nextTapItemAvailStatus` —
+probably outfit/costume related) **haven't been verified on-device
+yet**. The GUI's "K-only" tab exposes them with placeholder labels as
+raw numbers for now. See [FORMAT-EN.md](FORMAT-EN.md) for details.
 
 ## Disclaimer
 

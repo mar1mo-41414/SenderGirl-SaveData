@@ -97,8 +97,17 @@ FACILITY_NAMES = [
     ["彼の部屋の鍵", "彼の机の鍵", "彼の実家の鍵", "彼の心の鍵"],
 ]
 
-# タップ強化アイテム (tapItemLevel の4種) の名前
+# タップ強化アイテム (tapItemLevel) の名前。無印は4種類、【関西弁版】
+# (SenderGirlK) は7種類あることを実データで確認済みだが、5〜7番目の
+# 名前は未確認 (実機での確認待ち)。リストより後ろは "タップアイテムN"
+# という仮のラベルで埋める。
 TAP_ITEM_NAMES = ["お掃除", "メイク", "トレーニング", "ヨガ"]
+
+
+def _tap_item_name(i: int) -> str:
+    if i < len(TAP_ITEM_NAMES):
+        return TAP_ITEM_NAMES[i]
+    return f"タップアイテム{i + 1} (未確認)"
 
 
 def _powerup_labels_for(name: str | None):
@@ -167,6 +176,10 @@ class SaveEditorApp:
         self.powerup_vars: list[list[tk.StringVar]] = []
         self.tap_vars: list[tk.StringVar] = []
         self.tea_vars: list[tk.StringVar] = []
+        self.k_select_clothes_var: tk.StringVar | None = None
+        self.k_next_tap_var: tk.StringVar | None = None
+        self.k_clothes_vars: list[tk.StringVar] = []
+        self.is_k = False
 
         self._build_menu()
         self._build_body()
@@ -188,18 +201,29 @@ class SaveEditorApp:
         self.root.bind_all("<Control-s>", lambda e: self.save_file())
 
     def _build_body(self):
+        top_bar = ttk.Frame(self.root)
+        top_bar.pack(fill="x", padx=8, pady=(8, 0))
+        self.variant_badge = tk.Label(
+            top_bar, text="", font=("", 10, "bold"), padx=8, pady=2, relief="flat"
+        )
+        self.variant_badge.pack(side="right")
+
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=8, pady=8)
 
         self.simple_tab = ttk.Frame(self.notebook)
         self.items_tab = ttk.Frame(self.notebook)
+        self.k_tab = ttk.Frame(self.notebook)
         self.advanced_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.simple_tab, text="簡単編集")
         self.notebook.add(self.items_tab, text="アイテム")
+        self.notebook.add(self.k_tab, text="関西弁版限定")
         self.notebook.add(self.advanced_tab, text="詳細 (JSON)")
+        self.notebook.tab(self.k_tab, state="disabled")
 
         self._build_simple_tab()
         self._build_items_tab()
+        self._build_k_tab()
         self._build_advanced_tab()
 
         status_bar = ttk.Frame(self.root)
@@ -285,21 +309,15 @@ class SaveEditorApp:
         row += 1
         ttk.Label(
             inner,
-            text="タップ強化アイテム (4種) の状態\n"
+            text="タップ強化アイテムの状態 (無印は4種、【関西弁版】は7種)\n"
             "0=未解放 / 1=未確認 / 2=確認済 / 3=購入済み",
             font=("", 11, "bold"),
             justify="left",
         ).grid(row=row, column=0, columnspan=5, sticky="w", padx=6, pady=(8, 2))
         row += 1
-        for i in range(TEA_ITEM_COUNT):
-            ttk.Label(inner, text=TAP_ITEM_NAMES[i], width=16, anchor="w").grid(
-                row=row, column=0, sticky="w", padx=6, pady=2
-            )
-            var = tk.StringVar()
-            cb = ttk.Combobox(inner, textvariable=var, values=POWERUP_LABELS, state="readonly", width=14)
-            cb.grid(row=row, column=1, sticky="w", padx=3, pady=2)
-            self.tap_vars.append(var)
-            row += 1
+        self.tap_frame = ttk.Frame(inner)
+        self.tap_frame.grid(row=row, column=0, columnspan=5, sticky="w")
+        row += 1
 
         row += 1
         ttk.Label(
@@ -321,6 +339,88 @@ class SaveEditorApp:
 
         self.items_canvas = canvas
         self._bind_wheel_recursive(self.items_tab, canvas)
+
+    def _rebuild_tap_rows(self, count: int):
+        """tapItemLevel の要素数は無印(4)と【関西弁版】(7)で異なるため、
+        読み込んだデータの実際の長さに合わせて行を作り直す。"""
+        for child in self.tap_frame.winfo_children():
+            child.destroy()
+        self.tap_vars = []
+        for i in range(count):
+            ttk.Label(self.tap_frame, text=_tap_item_name(i), width=20, anchor="w").grid(
+                row=i, column=0, sticky="w", padx=6, pady=2
+            )
+            var = tk.StringVar()
+            cb = ttk.Combobox(
+                self.tap_frame, textvariable=var, values=POWERUP_LABELS, state="readonly", width=14
+            )
+            cb.grid(row=i, column=1, sticky="w", padx=3, pady=2)
+            self.tap_vars.append(var)
+        self._bind_wheel_recursive(self.tap_frame, self.items_canvas)
+
+    def _build_k_tab(self):
+        canvas = tk.Canvas(self.k_tab, highlightthickness=0)
+        vscroll = ttk.Scrollbar(self.k_tab, orient="vertical", command=canvas.yview)
+        inner = ttk.Frame(canvas)
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=vscroll.set)
+        vscroll.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        ttk.Label(
+            inner,
+            text="【関西弁版】(ゆるヤミ彼女と100万件のメッセージ / com.Happygamer.SenderGirlK)\n"
+            "にしか存在しないフィールド。無印には無いため、無印のセーブを開いている間は\n"
+            "このタブは操作できません。\n"
+            "意味・正しい表示名は未検証です。実機で値を変えて確認した結果を元に、\n"
+            "今後ラベルや選択肢を正確なものに更新する予定です。それまでは生の数値を\n"
+            "直接編集してください。",
+            justify="left",
+            foreground="#a05a2c",
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=6, pady=(8, 10))
+
+        ttk.Label(inner, text="selectClothes (選択中の衣装ID、未確認。-1=未選択?)", width=40, anchor="w").grid(
+            row=1, column=0, sticky="w", padx=6, pady=4
+        )
+        self.k_select_clothes_var = tk.StringVar()
+        ttk.Entry(inner, textvariable=self.k_select_clothes_var, width=12).grid(
+            row=1, column=1, sticky="w", padx=6, pady=4
+        )
+
+        ttk.Label(
+            inner, text="nextTapItemAvailStatus (未確認)", width=40, anchor="w"
+        ).grid(row=2, column=0, sticky="w", padx=6, pady=4)
+        self.k_next_tap_var = tk.StringVar()
+        ttk.Entry(inner, textvariable=self.k_next_tap_var, width=12).grid(
+            row=2, column=1, sticky="w", padx=6, pady=4
+        )
+
+        ttk.Label(
+            inner,
+            text="openClothesIds (衣装の開放状態と思われる配列、未確認)",
+            font=("", 11, "bold"),
+        ).grid(row=3, column=0, columnspan=2, sticky="w", padx=6, pady=(12, 2))
+        self.k_clothes_frame = ttk.Frame(inner)
+        self.k_clothes_frame.grid(row=4, column=0, columnspan=2, sticky="w")
+
+        self.k_canvas = canvas
+        self._bind_wheel_recursive(self.k_tab, canvas)
+
+    def _rebuild_k_clothes_rows(self, count: int):
+        for child in self.k_clothes_frame.winfo_children():
+            child.destroy()
+        self.k_clothes_vars = []
+        for i in range(count):
+            ttk.Label(self.k_clothes_frame, text=f"衣装{i + 1}", width=12, anchor="w").grid(
+                row=i, column=0, sticky="w", padx=6, pady=2
+            )
+            var = tk.StringVar()
+            ttk.Entry(self.k_clothes_frame, textvariable=var, width=10).grid(
+                row=i, column=1, sticky="w", padx=6, pady=2
+            )
+            self.k_clothes_vars.append(var)
+        self._bind_wheel_recursive(self.k_clothes_frame, self.k_canvas)
 
     def _build_advanced_tab(self):
         info = ttk.Label(
@@ -424,14 +524,28 @@ class SaveEditorApp:
                 var.set(_label_for_state(value, labels))
 
         tap = self.data.get("tapItemLevel") or []
+        self._rebuild_tap_rows(len(tap))
         for i, var in enumerate(self.tap_vars):
-            value = tap[i] if i < len(tap) else 0
-            var.set(_label_for_state(value, POWERUP_LABELS))
+            var.set(_label_for_state(tap[i], POWERUP_LABELS))
 
         tea = self.data.get("teaItemLevel") or []
         for i, var in enumerate(self.tea_vars):
             value = tea[i] if i < len(tea) else 0
             var.set(_label_for_state(value, TEA_LABELS))
+
+        self.is_k = save_payload.is_k_variant(self.data)
+        self.notebook.tab(self.k_tab, state="normal" if self.is_k else "disabled")
+        if self.is_k:
+            self.variant_badge.config(text="関西弁版", bg="#ffe0b2", fg="#5d4037")
+            self.k_select_clothes_var.set(str(self.data.get("selectClothes", "")))
+            self.k_next_tap_var.set(str(self.data.get("nextTapItemAvailStatus", "")))
+            clothes = self.data.get("openClothesIds") or []
+            self._rebuild_k_clothes_rows(len(clothes))
+            for i, var in enumerate(self.k_clothes_vars):
+                var.set(str(clothes[i]))
+        else:
+            self.variant_badge.config(text="ゆるヤミ彼女(無印)", bg="#f8bbd0", fg="#4a148c")
+            self._rebuild_k_clothes_rows(0)
 
     def _collect_items_tab_into_data(self):
         if self.data is None:
@@ -452,6 +566,17 @@ class SaveEditorApp:
 
         if "teaItemLevel" in self.data:
             self.data["teaItemLevel"] = [_state_from_label(var.get()) for var in self.tea_vars]
+
+        if self.is_k:
+            try:
+                if "selectClothes" in self.data:
+                    self.data["selectClothes"] = int(self.k_select_clothes_var.get())
+                if "nextTapItemAvailStatus" in self.data:
+                    self.data["nextTapItemAvailStatus"] = int(self.k_next_tap_var.get())
+                if "openClothesIds" in self.data:
+                    self.data["openClothesIds"] = [int(var.get()) for var in self.k_clothes_vars]
+            except ValueError:
+                raise ValueError("「関西弁版限定」タブの値には整数を入力してください。")
 
     def refresh_json_from_data(self):
         if self.data is None:
