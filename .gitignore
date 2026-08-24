@@ -7,8 +7,10 @@ build/
 *.spec
 
 # アプリ本体・実機セーブデータ (著作物 / 個人データ) はリポジトリに含めない
+# (階層に関わらず除外するため先頭の / を外している)
 *.ipa
 *.saveIt
-/Payload/
-/extracted/
-/work/
+Payload/
+extracted/
+work/
+K_data/
