@@ -11,7 +11,7 @@
   offset 177-180 (4バイト) : int32 LE = 以降に続くペイロードのバイト数。
   offset 181-    : ペイロード本体。**MessagePack** でエンコードされた
       1個の連想配列 (dict)。ここにゲームの実データ (ボリューム設定・
-      クッキー数・きずな履歴 等) が全て入っている。
+      ♡の数・きずな履歴 等) が全て入っている。
 
 MessagePack ペイロード内の値の型:
   - 大きな数値 (currentCookieCount, totalCookieCount, maxCookie 等) は

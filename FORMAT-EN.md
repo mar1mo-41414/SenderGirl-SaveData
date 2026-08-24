@@ -141,13 +141,13 @@ boostAvailavleTime, boostOnTime
 
 A few values carry special meaning beyond plain msgpack primitives:
 
-- **Large numbers (cookie counts)**: `currentCookieCount` /
+- **Large numbers (heart counts)**: `currentCookieCount` /
   `totalCookieCount` / `maxCookie` / `comingEnemyDamage` appear as a
   4-field map `{"flags": int, "hi": int, "mid": int, "lo": int}`. This
   is exactly the internal wire layout of **.NET's `System.Decimal`**
   (same as `decimal.GetBits()`: bits 16-23 of `flags` hold the scale,
   bit 31 the sign, and `hi/mid/lo` concatenated form a 96-bit unscaled
-  integer) — presumably used to keep very large cookie counts precise
+  integer) — presumably used to keep very large heart counts precise
   beyond what an int64 could hold. `scripts/save_payload.py`'s
   `Decimal96` class converts these to/from Python's `decimal.Decimal`
   automatically.

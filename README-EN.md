@@ -3,7 +3,7 @@
 # SenderGirl-SaveData
 
 An unofficial toolkit for decrypting and editing `UserData.saveIt`, the
-save file of the iOS app "SenderGirl" (`com.Happygamer.SenderGirl`).
+save file of the iOS app "ゆるヤミ彼女" (bundle id `com.Happygamer.SenderGirl`).
 
 Includes the results of reverse-engineering the encrypted container
 format, recovering the password, and decoding the data structure, plus a
@@ -28,7 +28,7 @@ GUI save editor built on top of that work.
 
 - Decrypt / re-encrypt `UserData.saveIt` (CLI / library)
 - Edit the most commonly-wanted fields through a GUI
-  (cookie counts, volume, the character's name, how many of each
+  (heart counts, volume, the character's name, how many of each
   production item you own and their upgrade states, etc.)
 - View/edit every field as raw JSON (advanced use)
 

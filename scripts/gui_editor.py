@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import json
-import shutil
 import sys
 import tkinter as tk
 from decimal import Decimal, InvalidOperation
@@ -30,26 +29,26 @@ SIMPLE_FIELDS = [
     ("VIBEOn", "バイブ ON", "bool"),
     ("BGMVolume", "BGM音量 (0.0-1.0)", "float"),
     ("SEVolume", "SE音量 (0.0-1.0)", "float"),
-    ("currentCookieCount", "所持クッキー数", "decimal"),
-    ("totalCookieCount", "累計クッキー数", "decimal"),
-    ("maxCookie", "最大クッキー保持数", "decimal"),
+    ("currentCookieCount", "♡の数", "decimal"),
+    ("totalCookieCount", "♡総生産数", "decimal"),
+    ("maxCookie", "最高♡所持数", "decimal"),
     # currentCrystal (課金アイテムのクリスタル) は編集すると起動直後に
     # フリーズすることが実機で確認されたため、簡単編集タブからは意図的に
     # 除外している。課金アイテムのため整合性チェックが厳しいと見られる。
     # 触りたい場合は自己責任で「詳細 (JSON)」タブから編集すること。
-    ("clickMakeCount", "クリック生産量", "int"),
+    ("clickMakeCount", "タップ増加量", "int"),
     ("autoMakeSpeed", "自動生成速度", "float"),
     ("round", "ラウンド", "int"),
     ("eventCompleteLevel", "イベント達成レベル", "int"),
     ("tutoProgress", "チュートリアル進行度", "int"),
-    ("totalClickMakeCount", "累計クリック生産量", "int"),
-    ("totalClickCount", "累計クリック回数", "int"),
-    ("comeEnemyCount", "敵出現回数", "int"),
-    ("repelEnemyCount", "敵撃退回数", "int"),
+    ("totalClickMakeCount", "部屋タップの生産数", "int"),
+    ("totalClickCount", "部屋タップ回数", "int"),
+    ("comeEnemyCount", "友達が来た回数", "int"),
+    ("repelEnemyCount", "おもてなし回数", "int"),
     ("useRepelItemCount", "撃退アイテム使用回数", "int"),
-    ("lostCookieCount", "ロストクッキー数", "int"),
-    ("maxTeaSet", "最大茶セット数", "int"),
-    ("teaset", "現在の茶セット数", "int"),
+    ("lostCookieCount", "邪魔された♡の数", "int"),
+    ("maxTeaSet", "最大ティーセット数", "int"),
+    ("teaset", "ティーセットの所持数", "int"),
     ("boostAvailavleTime", "ブースト使用可能時間", "int"),
     ("boostOnTime", "ブースト発動時間", "int"),
     ("shopBadgeFlg", "ショップバッジ表示", "bool"),
@@ -317,7 +316,7 @@ class SaveEditorApp:
         info = ttk.Label(
             self.advanced_tab,
             text="全フィールドの生データ (JSON)。編集後は必ず [JSONを適用] を押してください。"
-            "\n巨大な数値フィールド (クッキー数など) は文字列として表示されます。",
+            "\n巨大な数値フィールド (♡の数など) は文字列として表示されます。",
             justify="left",
         )
         info.pack(anchor="w", padx=8, pady=(8, 4))
@@ -525,14 +524,15 @@ class SaveEditorApp:
             messagebox.showerror("書き込みエラー", f"セーブデータの生成に失敗しました:\n{e}")
             return
 
+        backup = None
+        backup_error = None
         if path.exists():
             backup = path.with_suffix(path.suffix + ".bak")
             try:
-                shutil.copy2(path, backup)
-            except OSError:
+                backup.write_bytes(path.read_bytes())
+            except Exception as e:  # noqa: BLE001
+                backup_error = str(e)
                 backup = None
-        else:
-            backup = None
 
         path.write_bytes(new_saveit)
         self.loaded_path = path
@@ -540,6 +540,8 @@ class SaveEditorApp:
         msg = f"保存しました: {path}"
         if backup:
             msg += f"\n(元ファイルは {backup.name} としてバックアップ済み)"
+        elif backup_error:
+            msg += f"\n⚠ バックアップの作成に失敗しました: {backup_error}"
         self._set_status(msg)
         messagebox.showinfo("保存完了", msg)
 

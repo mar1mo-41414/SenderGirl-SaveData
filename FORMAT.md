@@ -140,13 +140,13 @@ boostAvailavleTime, boostOnTime
 いくつかの値は素の msgpack のプリミティブ型ではなく、特別な意味を
 持つ:
 
-- **巨大な数値 (クッキー数など)**: `currentCookieCount` /
+- **巨大な数値 (♡の数など)**: `currentCookieCount` /
   `totalCookieCount` / `maxCookie` / `comingEnemyDamage` は
   `{"flags": int, "hi": int, "mid": int, "lo": int}` という4フィールド
   の dict として現れる。これは **.NET の `System.Decimal` の内部表現**
   (`decimal.GetBits()` と同じレイアウト: `flags` の bit16-23 がスケール
   (10のべき乗)、bit31 が符号、`hi/mid/lo` を連結した96bit整数が仮数部)
-  そのもの。桁数の大きいクッキー数を正確に (int64を超える精度で)
+  そのもの。桁数の大きい♡の数を正確に (int64を超える精度で)
   保持するために使われていると考えられる。
   `scripts/save_payload.py` の `Decimal96` クラスが Python の
   `decimal.Decimal` と自動的に相互変換する。
