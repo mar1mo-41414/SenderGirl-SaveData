@@ -2,7 +2,7 @@
 
 # SenderGirl-SaveData
 
-iOS アプリ「SenderGirl」(`com.Happygamer.SenderGirl`) のセーブデータ
+iOS アプリ「ゆるヤミ彼女」(`com.Happygamer.SenderGirl`) のセーブデータ
 `UserData.saveIt` を復号・編集するための非公式ツール群。
 
 暗号化フォーマットの解析、パスワードの特定、データ構造の解読を行い、
